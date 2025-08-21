@@ -716,10 +716,6 @@ static unsigned int  Nlost=0;
 		case SCMD_SEND_OTLOG_C:
 			rc = p_sd->server_answerOTLog(bf,len);
 			break;
-
-		case SCMD_SEND_LOG_C:
-			rc = p_sd->server_answerLog(bf,len);
-			break;
 #endif
 
 //		case MCMD_SET_TCPSERVER:

@@ -777,7 +777,7 @@ void SD_Termo::loop(void)
                     } else if(TCPserver_rc == CCMD_SEND_OTLOG_S) {
                         TCPserver_sts2 = 7; 
                         ts0 = millis();
-                    } else if(TCPserver_rc == CCMD_SEND_LOG_S) {
+                    } else if(TCPserver_rc == SCMD_SEND_OTLOG_C) {
                         TCPserver_sts2 = 9; 
                         ts0 = millis();
 #endif 
@@ -808,22 +808,22 @@ void SD_Termo::loop(void)
                     }
                     break;
 
-                    case 9: //send CCMD_SEND_LOG_S
+                    case 9: //send SCMD_SEND_OTLOG_C
                         Send_to_server_log(); //todo
                         ts0 = millis();
                         TCPserver_sts2 = 10; 
                     break;
 
-                    case 10: //wait answer to CCMD_SEND_LOG_S from server
+                    case 10: //wait answer to SCMD_SEND_OTLOG_C from server
                     if(millis() - ts0 > 5000) // timeout todo
                     {   TCPserver_sts2 = 0; 
                         ts0 = millis();
-                        Serial_db.printf("Timeout CCMD_SEND_LOG_S **\n");
+                        Serial_db.printf("Timeout SCMD_SEND_OTLOG_C **\n");
 
                     } else if(TCPserver_rc == CCMD_SEND_STS_S) { 
                         TCPserver_sts2 = 5; 
                         ts0 = millis();
-                    } else if(TCPserver_rc == CCMD_SEND_LOG_S) { //todo
+                    } else if(TCPserver_rc == SCMD_SEND_OTLOG_C) { //todo
                         TCPserver_sts2 = 9; 
                         ts0 = millis();
                     }
@@ -1367,7 +1367,7 @@ int SD_Termo::server_answerOTLog( U8 *bf, int len)
 }
 
 
-//CCMD_SEND_LOG_S
+//SCMD_SEND_OTLOG_C
 void SD_Termo::Send_to_server_log(void) 
 {   unsigned char * MsgOut;
     int  i, l, ln,n;
@@ -1404,7 +1404,7 @@ void SD_Termo::Send_to_server_log(void)
     msg  = (struct Msg1 *)MsgOut;
     
     msg->cmd0 = 0x22;
-    msg->cmd  = CCMD_SEND_LOG_S;
+    msg->cmd  = SCMD_SEND_OTLOG_C;
     msg->ind = indcmd++;
     
     memcpy((void *)&msg->Buf[0],(void *) &ClientId,4); 
@@ -1419,13 +1419,13 @@ void SD_Termo::Send_to_server_log(void)
     pSerial_db->ls_s = pSerial_db->ls + n;
 //    if(pSerial_db->) 
 //    
-//    Serial.printf("CCMD_SEND_LOG_S ind %d, %d byes from %d >%s< total %d\n", msg->ind,  n, l, pstr, TcpServer_Lsend );
+//    Serial.printf("SCMD_SEND_OTLOG_C ind %d, %d byes from %d >%s< total %d\n", msg->ind,  n, l, pstr, TcpServer_Lsend );
 
     TCPserver_rc = 0;
     TCPserver_close_on_send = 0; //wait answer
 }
 
-//SCMD_SEND_LOG_C = CCMD_SEND_LOG_S answer
+//SCMD_SEND_LOG_C = SCMD_SEND_OTLOG_C answer
 int SD_Termo::server_answerLog( U8 *bf, int len)
 {   unsigned short int tmp2;
     int  i, l,  rc = 0;
@@ -1466,13 +1466,13 @@ int SD_Termo::server_answerLog( U8 *bf, int len)
                 pSerial_db->ind = 0;
                 TCPserver_rc = CCMD_SEND_STS_S;
             } else {
-                TCPserver_rc = CCMD_SEND_LOG_S;
+                TCPserver_rc = SCMD_SEND_OTLOG_C;
                 TCPserver_close_on_send = 0; //wait answer
                 rc = 1;
             }
         } else {
             pSerial_db->ls  = pSerial_db->ls_s;
-            TCPserver_rc = CCMD_SEND_LOG_S;
+            TCPserver_rc = SCMD_SEND_OTLOG_C;
             rc = 1;
         }
     
@@ -1607,7 +1607,7 @@ int SD_Termo::servercallback_send_Sts_answ( U8 *bf, int len)
 #endif    
     } else if((len == 6+4+2) && remote_cmd == 0x03) {
         
-            TCPserver_rc = CCMD_SEND_LOG_S;
+            TCPserver_rc = SCMD_SEND_OTLOG_C;
             TCPserver_close_on_send = 0; // wait answer
             rc = 1;
         }
