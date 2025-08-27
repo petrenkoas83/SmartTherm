@@ -279,6 +279,21 @@ String utc_time_jc;
 /************************************/
 unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi);
 
+static const char PAGE_AUTH[] PROGMEM = R"(
+{
+  "uri": "/auth",
+  "title": "Auth",
+  "menu": true,
+  "element": [
+    {
+      "name": "text",
+      "type": "ACText",
+      "value": "AutoConnect has authorized",
+      "style": "font-family:Arial;font-size:18px;font-weight:400;color:#191970"
+    }
+  ]
+}
+)";
 
 void setup_web_common(void)
 {   
@@ -366,10 +381,17 @@ void setup_web_common(void)
   config.autoReconnect = true;
   config.reconnectInterval = 2; //1;
   config.menuItems = config.menuItems | AC_MENUITEM_DELETESSID;
-   Serial_db.printf("WiFi psk=%s\n", config.psk.c_str());
+  Serial_db.printf("WiFi psk=%s\n", config.psk.c_str());
+
+  config.auth = AC_AUTH_BASIC;
+  config.authScope = AC_AUTHSCOPE_PORTAL; // Аутентификация на всех страницах
+  config.username = "admin";
+  config.password = "password";
+  
   
   portal.config(config);
   portal.onConnect(onConnect);  // Register the ConnectExit function
+  portal.load(FPSTR(PAGE_AUTH));
   portal.begin();
 
   WiFiWebServer&  webServer = portal.host();
