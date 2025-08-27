@@ -68,8 +68,9 @@ const char* SET_OT2_URI = "/setot2";
 const char* OT2_URI = "/ot2";
 #endif
 #if defined(ARDUINO_ARCH_ESP32)
-const char* user = "admin";
-const char* password = "password";
+const char* AUTH_USERNAME = "admin";
+const char* AUTH_PASSWORD = "password";
+const char* AUTH_REALM = "SmartTherm Authentication Required";
 #endif
 
 const char* STYLE_WIDTH = "width:15%";
@@ -279,6 +280,14 @@ String utc_time_jc;
 /************************************/
 unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi);
 
+
+bool checkAuth(WiFiWebServer& server) {
+    if (!server.authenticate(AUTH_USERNAME, AUTH_PASSWORD)) {
+        server.requestAuthentication(DIGEST_AUTH, AUTH_REALM);
+        return false;
+    }
+    return true;
+}
 
 void setup_web_common(void)
 {   
@@ -500,11 +509,17 @@ void onConnect(IPAddress& ipaddr)
 
 // Redirects from root to the info page.
 void onRoot() {
-  WiFiWebServer&  webServer = portal.host();
-  webServer.sendHeader("Location", String("http://") + webServer.client().localIP().toString() + String(INFO_URI));
-  webServer.send(302, "text/plain", "");
-  webServer.client().flush();
-  webServer.client().stop();
+    WiFiWebServer& webServer = portal.host();
+    
+    // Проверяем аутентификацию
+    if (!checkAuth(webServer)) {
+        return;
+    }
+    
+    webServer.sendHeader("Location", String("http://") + webServer.client().localIP().toString() + String(INFO_URI));
+    webServer.send(302, "text/plain", "");
+    webServer.client().flush();
+    webServer.client().stop();
 }
 
 float mRSSi = 0.;
@@ -631,7 +646,13 @@ extern int minRamFree;
 }
 
 String onSetTemp(AutoConnectAux& aux, PageArgument& args)
-{  float  v;
+{
+  WiFiWebServer& webServer = portal.host();
+
+  if (!checkAuth(webServer)) {
+      return String();
+  }
+   float  v;
    int isChange=0;
 
     if(SmOT.enable_CentralHeating)
@@ -677,8 +698,14 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
 
 // goes here from on_Setup
 String onSetPar(AutoConnectAux& aux, PageArgument& args)
-{  int isChange=0,  redir = 0, v;
-   bool check;
+{
+  WiFiWebServer& webServer = portal.host();
+
+  if (!checkAuth(webServer)) {
+        return String();
+  }
+  int isChange=0,  redir = 0, v;
+  bool check;
 
   if( CtrlChB1.checked) check = true;
   else                  check = false;
@@ -907,7 +934,14 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 // SetAddParPage 
 // SET_ADD_URI
 String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
-{  int isChange=0, redir = 0;
+{
+  WiFiWebServer& webServer = portal.host();
+
+  if (!checkAuth(webServer)) {
+        return String();
+  }
+
+  int isChange=0, redir = 0;
    unsigned short int icheck;
    unsigned short int v2;
 
@@ -994,7 +1028,13 @@ String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
 
 //SETUP_ADD_URI
 String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
-{  char str[40];
+{
+  WiFiWebServer& webServer = portal.host();
+
+  if (!checkAuth(webServer)) {
+        return String();
+  }
+  char str[40];
 
   if( SmOT.UseID2)
       UseID2ChB.checked = true;
@@ -1059,8 +1099,13 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
 
 // Main info page
 String onInfo(AutoConnectAux& aux, PageArgument& args) {
+  WiFiWebServer& webServer = portal.host();
+
+  if (!checkAuth(webServer)) {
+    return String();
+  }
   char str0[256];
-extern OpenTherm ot;
+  extern OpenTherm ot;
 
    switch(SmOT.stsOT)
    {  case -1:
@@ -1452,8 +1497,14 @@ if(SmOT.useMQTT)
 // SmOT.OTmemberCode
 // see as well on_setpar()
 String on_Setup(AutoConnectAux& aux, PageArgument& args)
-{  const char *pstr; 
-   char str[40]; 
+{
+  WiFiWebServer& webServer = portal.host();
+  
+  if (!checkAuth(webServer)) {
+    return String();
+  }
+  const char *pstr; 
+  char str[40]; 
     
 #if RELAY_USE
     CtrlChBUseRelay.enable = true;
