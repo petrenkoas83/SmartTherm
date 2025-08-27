@@ -117,7 +117,7 @@ static int timeOutcounter = 0;
     { OTslaveDebugInfo[1]++;
       ot_SlaveSts = -4;
 
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
         Serial.println(F("Parity error"));
 #endif        
       return;

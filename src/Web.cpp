@@ -67,6 +67,10 @@ const char* SET_PID_URI = "/set_pid";
 const char* SET_OT2_URI = "/setot2";
 const char* OT2_URI = "/ot2";
 #endif
+#if defined(ARDUINO_ARCH_ESP32)
+const char* user = "admin";
+const char* password = "password";
+#endif
 
 const char* STYLE_WIDTH = "width:15%";
 /************* InfoPage ******************/
@@ -278,8 +282,8 @@ unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi);
 
 void setup_web_common(void)
 {   
-//  Serial.println();
-//   Serial.println("setup_web_common");
+   Serial.println();
+   Serial.println("setup_web_common");
 
   {  char str[40];
      sprintf(str,"%.1f",SmOT.Tset);
@@ -434,7 +438,7 @@ int setup_web_common_onconnect(void)
 const char*  const _ntp1 = "europe.pool.ntp.org";
 const char*  const _ntp2 = "pool.ntp.org";
 
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
 	  time_t  now;
   now = time(nullptr);
   Serial_db.printf("1 %s", ctime(&now));
@@ -447,7 +451,7 @@ const char*  const _ntp2 = "pool.ntp.org";
 
     //TZoffset
 //   delay(1000);
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
   now = time(nullptr);
   Serial_db.printf("2 %s\n", ctime(&now));
 #endif  
@@ -485,7 +489,7 @@ void onConnect(IPAddress& ipaddr)
   rc = setup_web_common_onconnect();
   if(rc)
   {
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
   Serial.print(F("onConnect:WiFi connected with "));
   Serial.print(WiFi.SSID());
   Serial.print(F(", IP:"));
@@ -2068,13 +2072,13 @@ static unsigned long t0=0;
 
    if(rc != WiFists)
   { 
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
     Serial_db.printf("WiFi.status=%i\n", rc);
 #endif    
     if(rc == WL_CONNECTED)
     {  LedSts = 0;
  //     digitalWrite(LED_BUILTIN, LedSts);   
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
       Serial_db.printf((PGM_P)F("RSSI: %d dBm (%i%%)\n"), WiFi.RSSI(),_toWiFiQuality(WiFi.RSSI()));
       Serial.print(F("IP address: "));
       Serial.println(WiFi.localIP());
@@ -2208,18 +2212,18 @@ void check_fs(void)
  
   while(file){
  
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
       Serial.print("FILE: ");
       Serial_db.printf( "%s %d\n", file.name(), file.size());
 #endif      
       if(file.size() > 1000000)
        { char str[80];
          sprintf(str,"/%s",file.name() );
-      #if SERIAL_DEBUG      
+      #if defined SERIAL_DEBUG      
          Serial_db.printf( "remove %s\n", str);
       #endif         
          file.close();
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
         bool b = FlashFS.remove(str);
         Serial_db.printf( "remove  rc = %d\n", b);
 #else
@@ -2234,7 +2238,7 @@ void check_fs(void)
 }
 #endif
 
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
     { int tBytes, uBytes; 
 #if defined(ARDUINO_ARCH_ESP8266)
       FSInfo info;

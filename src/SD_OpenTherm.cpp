@@ -78,7 +78,7 @@ int SD_Termo::Read_ot_fs(void)
     rc = Read_data_fs((char *)path, Buff, FS_BUF, nw, 0);
     if(rc)
         return 1;
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
     Serial_db.printf((PGM_P)F("Read %i bytes\n"), nw);
 #endif    
 
@@ -214,7 +214,7 @@ int SD_Termo::Read_ot_fs(void)
 
 END:
 
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
     if(n != nw)
         Serial_db.printf((PGM_P)F("Warning:read %d bytes, use %d\n"), nw, n);
 
@@ -236,14 +236,14 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen, i
     unsigned short int crs, crs_r, nn, v;
 
     rlen = 0;
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
     Serial_db.printf((PGM_P)F("Reading file: %s\n"), _path);
 #endif
 
     File file = FlashFS.open(_path,"r" );
     if(!file || file.isDirectory())
     {  
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
          if(!file)
                 Serial.println(F("- failed to open file for reading"));
         else
@@ -251,7 +251,7 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen, i
 #endif                
         if(file)
         {   file.close();
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
             Serial.println(F("file.close()"));
 #endif            
         }
@@ -277,7 +277,7 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen, i
     n = file.read((unsigned char *)&nn, sizeof(nn));
     if(n != sizeof(nn))
     {   file.close();
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
         Serial_db.printf((PGM_P)F("file.read rc %i, must be =%i\n"),n,sizeof(nn));
 #endif        
         return 4;
@@ -293,7 +293,7 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen, i
     n = file.read((unsigned char *) dataBuff, nw); //read nn bytes of data
     if(n != nw)
     {   file.close();
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
         Serial_db.printf((PGM_P)F("file.read rc %i, must be =%i\n"),n,nw);
 #endif        
         return 5;
@@ -307,14 +307,14 @@ int SD_Termo::Read_data_fs(char *_path, uint8_t *dataBuff, int len, int &rlen, i
 
     if(crs !=  crs_r )
     {   file.close();
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
         Serial_db.printf((PGM_P)F("crs = %i, must be =%i\n"),crs_r,crs);
 #endif        
         return 6;
     }
 
     file.close();
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
     Serial.println(F("file.close()"));
 #endif
     rlen = l;
@@ -327,7 +327,7 @@ int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len, int mode)
 {   int rc=0, i, n, nw;
     unsigned short int crs, v;
 
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
     Serial_db.printf((PGM_P)F("Writing file: %s %d bytes\n"), _path, len);
 #endif // SERIAL_DEBUG      
 
@@ -335,7 +335,7 @@ int SD_Termo::Write_data_fs(char *_path, uint8_t *dataBuff, int len, int mode)
     File file = FlashFS.open(_path, "w");  //FILE_WRITE
     if(!file)
     {  
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
          Serial.println(F("- failed to open file for writing"));
 #endif         
         return 1;
@@ -377,7 +377,7 @@ int SD_Termo::Write_ot_fs(void)
     
     n = sizeof(enable_CentralHeating);
     memcpy(&Buff[0],(void *) &enable_CentralHeating, n);
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
 Serial_db.printf("SD_Termo::Write_ot_fs  enable_CentralHeating %d \n", enable_CentralHeating);
 #endif
     memcpy(&Buff[n],(void *) &enable_HotWater, sizeof(enable_HotWater));
@@ -483,7 +483,7 @@ memset(&Buff[n],0, sizeof(int) * 16); //reserved
 n += sizeof(int) * 16;
 
 
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
     if( n > sizeof(Buff) )    
          Serial_db.printf("Error: %s buff size %d, need %d\n", __FUNCTION__,  sizeof(Buff), n);
    Serial_db.printf("%s buff size %d, need %d\n", __FUNCTION__,  sizeof(Buff), n);
@@ -501,7 +501,7 @@ int SD_Termo::Read_mqtt_fs(void)
 
 
     rc = Read_data_fs((char *)pathmqtt, Buff, FS_BUFMQTT, nw, 1);
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
     Serial_db.printf("Read %s rc %i\n", pathmqtt, rc);
 #endif    
     if(rc)
@@ -573,7 +573,7 @@ int SD_Termo::Write_mqtt_fs(void)
 #endif
 
     rc = Write_data_fs((char *)pathmqtt, Buff, n, 1);
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
     Serial_db.printf("Write %s rc %i\n", pathmqtt, rc);
 #endif
 
@@ -634,7 +634,7 @@ void SD_Termo::loop(void)
 
     if(need_write_f)
     {   
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
         int rc,  t0;
         t0 = millis();
         rc = Write_ot_fs();
@@ -1836,7 +1836,7 @@ void  SD_Termo::callback_getdata( U8 *bf, PACKED unsigned char * &MsgOut,int &Ls
 	 memcpy((void *)&MsgOut[48],(void *)&t1,4); 
 	 memcpy((void *)&MsgOut[52],(void *)&t2,4); 
 
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
   Serial_db.printf("%s, BoilerStatus=%d T1=%f T2=%f\n", __FUNCTION__, BoilerStatus, t1, t2 ); 
 #endif
 }
@@ -1867,7 +1867,7 @@ void SD_Termo::callback_set_tcp_server( U8 *bf, PACKED unsigned char * &MsgOut,i
 
 //  Serial_db.printf("tcp_remoteIP = %s TCPserver_sts =%d\n",tcp_remoteIP.toString().c_str(), TCPserver_sts); 
 
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
 //  Serial_db.printf("callback_set_tcp_server sts=%d remoteIP =%s\n", s, buf);
 //  tcp_remoteIP.fromString(buf);
 //  Serial_db.printf("==");
@@ -1912,7 +1912,7 @@ void  SD_Termo::callback_testcmd( U8 *bf, PACKED unsigned char * &MsgOut,int &Ls
     TestCmd = 1;
     TestResponse = -1;
     TestStatus = -1;
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
 //    Serial_db.printf("%s, TestCmd =%d TestId=%i TestPar=%i\n", __FUNCTION__, TestCmd, TestId, TestPar ); 
 #endif    
 }

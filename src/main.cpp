@@ -220,6 +220,11 @@ void setup() {
 
   Serial.println(IDENTIFY_TEXT);
   Serial_db.printf((PGM_P)F("Vers %d.%d.%d.%d build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
+#if defined SERIAL_DEBUG
+  Serial.println("Serial debug is on.");
+#else
+  Serial.println("Serial debug is off.");
+#endif
 
   LedSts=1;
   digitalWrite(LED_BUILTIN, LedSts);   
@@ -348,7 +353,7 @@ void loopDS1820(void)
             if(!rc)
             { SmOT.status |= 0x04;
               nd = 2;
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
               Serial.println(F("ERROR: DS1 timeout or disconnect"));
 #endif                
               break;
@@ -362,7 +367,7 @@ void loopDS1820(void)
           if (t == DEVICE_CRC_ERROR)
           { SmOT.stsT1 = 2;
             SmOT.status |= 0x10;
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
             Serial.println(F("ERROR: DS1 CRC error"));
 #endif            
           } else {
@@ -396,7 +401,7 @@ void loopDS1820(void)
           if(!rc)
           { SmOT.status |= 0x0400;
             nd = 0;
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
             Serial.println(F("ERROR: DS2 timeout or disconnect"));
 #endif                
               break;
@@ -411,7 +416,7 @@ void loopDS1820(void)
           if (t == DEVICE_CRC_ERROR)
           { SmOT.stsT2 = 2;
             SmOT.status |= 0x1000;
-      #if SERIAL_DEBUG 
+      #if defined SERIAL_DEBUG 
             Serial.println(F("ERROR: DS2 CRC error"));
       #endif            
           } else {
@@ -557,7 +562,7 @@ static int timeOutcounter = 0;
     parity = ot.parity(response);
     if(parity)
     { OTDebugInfo[1]++;
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
         Serial.println(F("Parity error"));
 #endif        
       return;
@@ -569,7 +574,7 @@ static int timeOutcounter = 0;
     if(messagetype == DATA_INVALID)
     { OTDebugInfo[7]++;
       ot.update_OTid(id, 1); //used, bur data invalid  
-      #if SERIAL_DEBUG 
+      #if defined SERIAL_DEBUG 
       Serial.println(F("DATA_INVALID"));
 #endif        
       return;
@@ -586,7 +591,7 @@ static int timeOutcounter = 0;
     if(messagetype != READ_ACK && messagetype != WRITE_ACK )
     { OTDebugInfo[9]++;
          if(OTstartSts > 0)  OTstartSts++;
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
         Serial_db.printf("Messagetype  %d!!! Status %d %d ot.LastRequestId %d\n", messagetype, status, SmOT.stsOT, ot.LastRequestId);
 #endif        
       return;
@@ -600,7 +605,7 @@ static int timeOutcounter = 0;
     
     if(id != ot.LastRequestId)
     { OTDebugInfo[10]++;
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
         Serial_db.printf("Resp id %d != Req id %d\n", id, ot.LastRequestId );
 #endif        
       return;
@@ -678,7 +683,7 @@ bit: description [ clear/0, set/1]
         
     case OpenThermMessageID::MConfigMMemberIDcode: //2
          if(OTstartSts == 2)  OTstartSts++;
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
        Serial_db.printf((PGM_P)F("OpenThermMessageID::MConfigMMemberIDcode, %d\n"), OTstartSts);
 #endif
         break;
@@ -1429,7 +1434,7 @@ static int mday_prev = 0;
 #endif
 
 /*
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
 Serial_db.printf( "%02d.%02d.%d %d:%02d:%02d\n",
           nowtime->tm_mday,nowtime->tm_mon+1,nowtime->tm_year+1900,
 		  nowtime->tm_hour, nowtime->tm_min, nowtime->tm_sec);

@@ -144,7 +144,7 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
    if(_Kidiss > 0.5) _Kidiss = 0.5;
 
    InT = InT * (1.f - _Kidiss) + xerr * dtf; // grad * sec
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
 //   Serial_db.printf("pid: dt %d xerr=%f, InT=%f dX=%f\n",
 //          dt , xerr, InT, dX); 
 //   Serial_db.printf("pid: _x %f xTag=%f, u0=%f\n",
@@ -165,7 +165,7 @@ void pid::Set_NewTag( float _NewTag, float _OldTag, float _CurrentT)
          u = (u  +  _u + _u0) * 0.5; //filter output of pid
 
 
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
 //   Serial_db.printf("pid: U= %f u0 = %f _u = %f dP=%f, dD=%f dI=%f\n",
 //        u, _u0, _u , dP, dD, dI); 
 #endif         

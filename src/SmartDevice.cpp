@@ -28,7 +28,7 @@ void SmartDevice::callback_HandShake( U8 *bf,PACKED unsigned char * &MsgOut,int 
 	Lsend = l + sizeof(short int)*3; //16
 	MsgOut = get_buf(Lsend);
 	memcpy((void *)&MsgOut[0],(void *)bf,6);
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
 //  Serial_db.printf("MCMD_HAND_SHAKE  Lsend=%i\n", Lsend );
 #endif
 	
@@ -48,7 +48,7 @@ Serial_db.printf("\n");
 //MCMD_HAND_SHAKE
 int SmartDevice::servercallback_HandShake( U8 *bf, int len)
 { int l, rc = 0;
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
 //  Serial_db.printf("servercallback_HandShake len=%d\n", len);
 #endif
 
@@ -76,7 +76,7 @@ int SmartDevice::server_send_HandShake(unsigned char * &MsgOut,int &Lsend, U8 *(
 
     TCPserver_rc = SCMD_GET_HAND_SHAKE;
     TCPserver_sts2 = 1;
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
 //  Serial_db.printf("server_send_HandShake SCMD_GET_HAND_SHAKE\n");
 //  Serial_db.printf("TCPserver_sts2 = 1\n");
 #endif
@@ -85,7 +85,7 @@ int SmartDevice::server_send_HandShake(unsigned char * &MsgOut,int &Lsend, U8 *(
     struct Msg1 *msg;
 extern int indcmd;
     
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
   Serial_db.printf("server_send_HandShake\n");
 #endif
 
@@ -200,7 +200,7 @@ void SmartDevice::callback_settime( U8 *bf, PACKED unsigned char * &MsgOut,int &
 
   settimeofday(&tv, nullptr);
 
-#if SERIAL_DEBUG 
+#if defined SERIAL_DEBUG 
 //{  time_t now;
 //  now = time(nullptr);
 //  Serial_db.printf("2 %s\n", ctime(&now));

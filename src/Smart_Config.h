@@ -71,7 +71,7 @@
 #elif defined(ARDUINO_ARCH_ESP32)
  #define PROSESSOR_CODE  2
   #if ST_VERS == 0
-  #define IDENTIFY_TEXT        		F("Умный контроллер SmartTherm ESP32")
+  #define IDENTIFY_TEXT        		F("Умный контроллер SmartTherm ESP32 security")
   #elif ST_VERS == 1
   #define IDENTIFY_TEXT        		F("Умный контроллер SmartTherm")
   #elif ST_VERS == 2

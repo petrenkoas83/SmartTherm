@@ -131,7 +131,7 @@ void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
     {
       SmOT.TdhwSet = temperatureFloat;
       SmOT.need_set_dhwT(2);
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
     Serial.print("DHW Target temperature: ");
     Serial.println(temperatureFloat);
 #endif    
@@ -152,7 +152,7 @@ void onTargetTemperatureCommand(HANumeric temperature, HAHVAC* sender) {
       SmOT.Tset = temperatureFloat;
       SmOT.need_set_T(2);
       sender->setTargetTemperature(temperature); // report target temperature back to the HA panel
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
     Serial.print("CH Target temperature: ");
     Serial.println(temperatureFloat);
 #endif    
@@ -229,13 +229,13 @@ void onNumberCommand(HANumeric number, HANumber* sender)
 //    } else 
     
     if (sender == &numT_outdoor) {
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
       Serial_db.printf("NumberCommand numT_outdoor: %f (%d)\n", t, millis()/1000);
 #endif      
       SmOT.OnChangeT(t,4);
         
     } else if (sender == &numT_indoor) {
-#if SERIAL_DEBUG      
+#if defined SERIAL_DEBUG      
 //      Serial_db.printf("NumberCommand numT_indoor: %f (%d)\n", t, millis()/1000);
 #endif      
       SmOT.OnChangeT(t,3);
