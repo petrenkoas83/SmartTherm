@@ -1130,11 +1130,13 @@ int SD_Termo::callback_Get_OpenThermInfo( U8 *bf, int len, PACKED unsigned char 
     memcpy((void *)&MsgOut[38],(void *) &TdhwSet,4); 
     memcpy((void *)&MsgOut[42],(void *) &FlameModulation,4); 
 	memcpy((void *)&MsgOut[46],(void *) &Pressure,4); 
+    #if defined(TEMP_SENSORS)    
     statDS = 0;
     if(stsT1 > 0)
 	    statDS |= (stsT1&03);
     if(stsT2 > 0)
-    statDS |= (stsT2&03)<<8;
+        statDS |= (stsT2&03)<<8;
+    #endif        
     #if RELAY_USE
         if(Relay_sts)
             statDS |= 0x1000;
@@ -1251,10 +1253,12 @@ void SD_Termo::Send_to_server_Sts(unsigned char * &MsgOut, int &Lsend, U8 *(*get
      memcpy((void *)&msg->Buf[42],(void *) &FlameModulation,4); 
 	 memcpy((void *)&msg->Buf[46],(void *) &Pressure,4); 
      statDS = 0;
+    #if defined(TEMP_SENSORS)
     if(stsT1 > 0)
         statDS |= (stsT1&03);
     if(stsT2 > 0)
         statDS |= (stsT2&03)<<8;
+    #endif
 #if RELAY_USE
     if(Relay_sts)
         statDS |= 0x1000;

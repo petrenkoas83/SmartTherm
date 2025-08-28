@@ -484,6 +484,7 @@ extern unsigned int OTcount;
 //todo    
 #endif
 /*********************************/
+#if defined(TEMP_SENSORS)
     if(SmOT.stsT1 >= 0 )
     { sensorT1.setAvailability(true);
       sensorT1.setNameUniqueIdStr(SmOT.MQTT_topic,"T1", "T1");
@@ -507,6 +508,7 @@ extern unsigned int OTcount;
     }  else {
       sensorT2.setAvailability(false);
     }
+#endif
 
     if(SmOT.Toutside_present)
     { sensorText.setAvailability(false);
@@ -760,6 +762,7 @@ if(SmOT.stsMQTT == 0)
           }
         }
         st_old = SmOT.stsOT;
+#if defined(TEMP_SENSORS)
         if(SmOT.stsT1 >= 0)
         {  
 #if PID_USE
@@ -798,6 +801,7 @@ if(SmOT.stsMQTT == 0)
 #endif             
         
         }
+#endif
 
         { static int raz = 0;
           if(raz++ == 0)
@@ -831,11 +835,12 @@ void MQTTsenddata(void)
     hvac.setMode(HAHVAC::HeatMode);
   else
     hvac.setMode(HAHVAC::OffMode);
-
+#if defined(TEMP_SENSORS)
 #if  PID_USE
   if(SmOT.IsSetTemp & 0x01)
     hvacPID.setCurrentTemperature(SmOT.tempindoor);
   hvacPID.setTargetTemperature(SmOT.TroomTarget);
+#endif
 #endif
 
   if(SmOT.BoilerStatus & 0x08)
@@ -904,14 +909,14 @@ void MQTTsenddata(void)
       sensorPID_U0.setValue(str);
         
 //            Serial_db.printf("srcText %d srcTroom  %d\n",SmOT.srcText, SmOT.srcTroom );
-
+#if defined(TEMP_SENSORS)
       if((SmOT.srcTroom >= 0 && SmOT.srcTroom < 3) && (SmOT.IsSetTemp & 0x01))
       {  numT_indoor.setState(SmOT.tempindoor, true);
       }
       if((SmOT.srcText >= 0 && SmOT.srcText < 3) && (SmOT.IsSetTemp & 0x02))
       {   numT_outdoor.setState(SmOT.tempoutdoor, true);
       }
-
+#endif
 //            sprintf(str,"isset %d nx %d xmean %.3f x %.3f", SmOT.t_mean[4].isset, SmOT.t_mean[4].nx, SmOT.t_mean[4].xmean,  SmOT.t_mean[4].x);
 //            textPIDinfo.setValue(str);
 

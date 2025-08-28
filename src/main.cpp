@@ -76,9 +76,12 @@ char SmartDevice::LocalUrl[24] = "";
   const int outPinSlave = 18; // OpenTherm slave out
 #endif
 
+#if defined(TEMP_SENSORS)
   const int DS1820_1 = 15; // D15 esp32  3 снизу
   const int DS1820_2 = 26; // D26 esp32  7 снизу
+#endif
   const int RelayPin = 23;
+
 
 #endif
 
@@ -103,6 +106,7 @@ void LogOT(int status, int code, byte id, int messagetype,  unsigned int u88);
 #endif
 
 /* DS18b20 */
+#if defined(TEMP_SENSORS)
 #include <OneWire.h>
 #include <DS18B20.h>
 
@@ -113,9 +117,13 @@ OneWire oneWire1(DS1820_1);
 OneWire oneWire2(DS1820_2);
 DS18B20 Tsensor1(&oneWire1);
 DS18B20 Tsensor2(&oneWire2);
+#else
+void setupDS1820(void) {}
+void loopDS1820(void) {}
+#endif
+
 extern unsigned int OTDebugInfo[12];
 extern unsigned int OTcount;
-
 
 void IRAM_ATTR handleInterrupt() {
     ot.handleInterrupt();  
@@ -259,8 +267,9 @@ void setup() {
  #endif
 #endif
 
+#if defined(TEMP_SENSORS)
   setupDS1820();
-
+#endif
   setup_web_common();
   setup_tcpudp( &SmOT );
 
@@ -286,6 +295,7 @@ void setup() {
 int status_OT = -1;
 static int _SConfigSMemberIDcode = 0;
 
+#if defined(TEMP_SENSORS)
 void setupDS1820(void)
 {//  Serial.print("DS18B20 Library version: ");
  //  Serial.println(DS18B20_LIB_VERSION);
@@ -437,6 +447,7 @@ void loopDS1820(void)
       break;
   }
 }
+#endif
 
 ////////////////////////////////////////////////////////
 
@@ -1251,6 +1262,7 @@ void loop(void)
 int minRamFree=-1;
 
 /* web, udp, DS1820 */
+
 void loop2(void)
 {   static int irot = 0;
     static unsigned long  t0=0; // t1=0;
@@ -1347,43 +1359,43 @@ void loop2(void)
     oldFree = free;
   }
 }
-         loop_udp(SmOT.UDPserver_sts);
-         
+          loop_udp(SmOT.UDPserver_sts);
           irot++;
-        break;
+          break;
 
         case 3:      
-        if(SmOT.Use_remoteTCPserver && SmOT.TCPserver_sts > 0)
-        {    loop_servertcp();
-        }
-        
-        loop_tcp(0);
-
-          irot++;
-        break;
+          if(SmOT.Use_remoteTCPserver && SmOT.TCPserver_sts > 0)
+          {
+            loop_servertcp();
+          }
+          loop_tcp(0);
+            irot++;
+          break;
 
         case 4:
-        loopDS1820();
-        irot++;
-        break;
+#if defined(TEMP_SENSORS)
+          loopDS1820();
+          irot++;
+#endif        
+          break;
 
         case 5:
-        loop_time();
-        irot = 0;
+          loop_time();
+          irot = 0;
           break;
 
     }
 }
 
-
 void loop_time(void)
-{ time_t now;
-static time_t prev = 0;
-static int hour_prev = 0;
-static int mday_prev = 0;
-    struct tm *nowtime;
-    int year, year_prev;
-    time_t dt;
+{
+  time_t now;
+  static time_t prev = 0;
+  static int hour_prev = 0;
+  static int mday_prev = 0;
+  struct tm *nowtime;
+  int year, year_prev;
+  time_t dt;
 
   now = time(nullptr);
   if(now == prev)
@@ -1410,7 +1422,7 @@ static int mday_prev = 0;
   prev = now;
 
   if( year_prev == 70 && year  >= 123)  //change time with nttp server
-  {    noInterrupts();
+  {    noInterrupts(); 
         SmOT.Bstat.NflameOn_h = 0;
         SmOT.Bstat.ModIntegral_h = 0.;
         SmOT.Bstat.ModIntegral_d = 0.;

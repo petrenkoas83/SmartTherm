@@ -1237,6 +1237,7 @@ if(SmOT.useMQTT)
    if(SmOT.CapabilitiesDetected == 0)
           Info1.value += "<br>Тест котла";
 #endif // MQTT_USE 
+#if defined(TEMP_SENSORS)
 #if PID_USE
     if(SmOT.usePID && SmOT.enable_CentralHeating)
     {   Info1.value += "<br>управление по PID";
@@ -1246,11 +1247,11 @@ if(SmOT.useMQTT)
       Info1.value += " Toutdoor " + String(SmOT.tempoutdoor);
     }
 #endif // PID_USE 
-
+#endif
 /***************************************/
 
 //  Serial_db.printf("Info1.value length=%i\n ", strlen(Info1.value.c_str()));
-
+#if defined(TEMP_SENSORS)
     if(SmOT.stsT1 >= 0 || SmOT.stsT2 >= 0)
     {   Info3.value = " Температура ";
         if(SmOT.stsT1 >= 0)
@@ -1261,6 +1262,8 @@ if(SmOT.useMQTT)
     } else {
         Info3.value = "";
     }
+#endif    
+
     if(ot.OTid_used(OpenThermMessageID::Toutside))
     {   Info3.value += "Text " + String(SmOT.Toutside) + "<br>";
     }
@@ -1654,13 +1657,15 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
 
 //    Serial_db.printf("SetTempSrcPID=%s\n", SetTempSrcPID.value);
 //    Serial_db.printf("SetTempSrcPID.value =%d\n", iv);
-
+    #if defined(TEMP_SENSORS)
     if(iv != SmOT.srcTroom)
-    { if((iv == -1) ||(iv == 0 && SmOT.stsT1 == 1) ||(iv == 1 && SmOT.stsT2 == 1) || (iv == 2 && SmOT.Toutside_present) || (iv >2 && SmOT.useMQTT) )
+    { 
+      if((iv == -1) ||(iv == 0 && SmOT.stsT1 == 1) ||(iv == 1 && SmOT.stsT2 == 1) || (iv == 2 && SmOT.Toutside_present) || (iv >2 && SmOT.useMQTT) )
       { SmOT.srcTroom = iv;
         isChange = 1;
       }
     }
+    #endif
     
     iv = SetTempExtSrcPID.value.toInt();
     if(iv > MAX_PID_SRC)
@@ -1668,12 +1673,16 @@ String onSetPID(AutoConnectAux& aux, PageArgument& args)
     else if (iv < -1)
       iv = -1;
   
+    #if defined(TEMP_SENSORS)
     if(iv != SmOT.srcText)
-    { if((iv == -1) ||(iv == 0 && SmOT.stsT1 == 1) ||(iv == 1 && SmOT.stsT2 == 1) || (iv == 2 && SmOT.Toutside_present) || (iv >2 && SmOT.useMQTT) )
+    {
+      if((iv == -1) ||(iv == 0 && SmOT.stsT1 == 1) ||(iv == 1 && SmOT.stsT2 == 1) || (iv == 2 && SmOT.Toutside_present) || (iv >2 && SmOT.useMQTT) )
       { SmOT.srcText = iv;
         isChange = 1;
       }
     }
+    #endif
+
     v = SetKpPID.value.toFloat();
     if(v != SmOT.mypid.Kp)
     { SmOT.mypid.Kp = v;

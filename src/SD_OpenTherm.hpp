@@ -104,10 +104,13 @@ public:
   short int stsOT; // -1 not init, 0 - normal work, 2 - timeout
   time_t t_lastwork; // time of last stsOT = 0
   int ns_OT, nr_OT; // тест число пакетов посланных и полученных
+#if defined(TEMP_SENSORS)  
   int stsT1;
   int stsT2;
+#endif  
   float t1;
   float t2;
+
 //sizeof(unsigned long)=4
     //Set Boiler Status
   bool enable_CentralHeating;     //user set
@@ -293,8 +296,10 @@ public:
       ns_OT = nr_OT = 0; 
       t_lastwork = 0;
       t_lastSetPointChange = 0;
+#if defined(TEMP_SENSORS)      
 	    stsT1 = -1;
 	    stsT2 = -1;
+#endif      
       t1 = t2 = 0.;
       response = 0;
       responseID = -1;
