@@ -42,6 +42,18 @@ AutoConnectFS::FS& FlashFS = AUTOCONNECT_APPLIED_FILESYSTEM;
 char SmartDevice::BiosDate[12]=__DATE__;   /* дата компиляции биоса */
 #endif
 
+// Callback функции
+void (*preHandleCallback)() = nullptr;
+void (*postHandleCallback)() = nullptr;
+
+void setPreHandleCallback(void (*callback)()) {
+    preHandleCallback = callback;
+}
+
+void setPostHandleCallback(void (*callback)()) {
+    postHandleCallback = callback;
+}
+
 extern  SD_Termo SmOT;
 int WiFiDebugInfo[10] ={0,0,0,0,0, 0,0,0,0,0};
 unsigned int OTDebugInfo[12] ={0,0,0,0,0, 0,0,0,0,0, 0,0};
@@ -375,11 +387,22 @@ void setup_web_common(void)
   config.autoReconnect = true;
   config.reconnectInterval = 2; //1;
   config.menuItems = config.menuItems | AC_MENUITEM_DELETESSID;
-   Serial_db.printf("WiFi psk=%s\n", config.psk.c_str());
+  Serial_db.printf("WiFi psk=%s\n", config.psk.c_str());
   
   portal.config(config);
   portal.onConnect(onConnect);  // Register the ConnectExit function
+  
   portal.begin();
+
+  setPreHandleCallback([]() {
+      Serial.printf("\n\n\n============================\nПодготовка к обработке запроса\n");
+      digitalWrite(LED_BUILTIN, LOW); // Включить LED
+  });
+  
+  setPostHandleCallback([]() {
+      Serial.printf("\nЗавершение обработки запроса\n\n\n============================\n");
+      digitalWrite(LED_BUILTIN, HIGH); // Выключить LED
+  });
 
   WiFiWebServer&  webServer = portal.host();
 
@@ -413,6 +436,17 @@ void setup_web_common(void)
 #endif //
 //  Serial_db.printf("(20) %d\n", millis());
 
+}
+
+void myHandleClient() {
+    // Pre-processing hook
+    if (preHandleCallback) preHandleCallback();
+    
+    // Original handle
+    portal.handleClient();
+    
+    // Post-processing hook
+    if (postHandleCallback) postHandleCallback();
 }
 
 #include "esp_sntp.h"
@@ -530,15 +564,17 @@ int OutUTCtime(time_t now);
 #include "esp32/rom/rtc.h"
 
 String onDebug(AutoConnectAux& aux, PageArgument& args)
-{  char str[256];
+{  
+  char str[256];
   // int l;
-extern int minRamFree;
+  extern int minRamFree;
 
-//Serial_db.drop();
+  //Serial_db.drop();
 
-//WiFiDebugInfo
-//   sprintf(str,"WiFi statistics:");
-//   Info1.value = str;
+  //WiFiDebugInfo
+  //   sprintf(str,"WiFi statistics:");
+  //   Info1.value = str;
+
    Info1.value = F("WiFi statistics:");
    sprintf(str,(PGM_P)F("%d %d  %d %d  %d %d  %d %d"), 
       WiFiDebugInfo[0],WiFiDebugInfo[1],WiFiDebugInfo[2],WiFiDebugInfo[3],WiFiDebugInfo[4],WiFiDebugInfo[5],WiFiDebugInfo[6],WiFiDebugInfo[7]);
@@ -2119,7 +2155,8 @@ static unsigned long t0=0;
     }
   }
 
-  portal.handleClient();
+  //portal.handleClient();
+  myHandleClient();
 
    if(rc != WiFists)
   { 
