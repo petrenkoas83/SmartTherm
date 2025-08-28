@@ -42,22 +42,39 @@ AutoConnectFS::FS& FlashFS = AUTOCONNECT_APPLIED_FILESYSTEM;
 char SmartDevice::BiosDate[12]=__DATE__;   /* дата компиляции биоса */
 #endif
 
+const char* INFO_URI  = "/info";
+
+#if defined(ARDUINO_ARCH_ESP32)
+const char* AUTH_USERNAME = "admin";
+const char* AUTH_PASSWORD = "password";
+const char* AUTH_REALM = "SmartTherm Authentication Required";
 class MyAutoConnect : public AutoConnect {
 public:
-    void handleClient() {
-        Serial.println("Дополнительная обработка перед handleClient");
-        performPreActions();
-        
+    void handleClient() {      
+        // Проверим аутентификацию клиента
+        WiFiWebServer&  webServer = this->host();
+        if (!checkAuth(webServer)) {
+          Serial.println("Пройдите аутентификацию");
+          /*webServer.sendHeader("Location", String("http://") + webServer.client().localIP().toString() + String(INFO_URI));
+          webServer.send(302, "text/plain", "");
+          webServer.client().flush();
+          webServer.client().stop();*/
+          //return;            
+        }
+       
         // Вызов оригинального handleClient()
         AutoConnect::handleClient();
         
-        Serial.println("Дополнительная обработка после handleClient");
         performPostActions();
     }
 
 private:
-    void performPreActions() {
-
+    bool checkAuth(WiFiWebServer& server) {     
+      if (!server.authenticate(AUTH_USERNAME, AUTH_PASSWORD)) {
+          server.requestAuthentication(DIGEST_AUTH, AUTH_REALM);
+          return false;
+      }
+      return true;
     }
 
     void performPostActions() {
@@ -66,6 +83,7 @@ private:
 
     unsigned long lastCheck = 0;
 };
+#endif
 
 extern  SD_Termo SmOT;
 int WiFiDebugInfo[10] ={0,0,0,0,0, 0,0,0,0,0};
@@ -74,7 +92,6 @@ extern OpenThermID OT_ids[N_OT_NIDS];
 unsigned int OTcount = 0;
 
 /*********************************/
-const char* INFO_URI  = "/info";
 const char* SETUP_URI = "/setup";
 const char* RELAY_URI = "/relay";
 const char* BLOR_URI  = "/blor";
@@ -92,11 +109,7 @@ const char* SET_PID_URI = "/set_pid";
 const char* SET_OT2_URI = "/setot2";
 const char* OT2_URI = "/ot2";
 #endif
-#if defined(ARDUINO_ARCH_ESP32)
-const char* AUTH_USERNAME = "admin";
-const char* AUTH_PASSWORD = "password";
-const char* AUTH_REALM = "SmartTherm Authentication Required";
-#endif
+
 
 const char* STYLE_WIDTH = "width:15%";
 /************* InfoPage ******************/
@@ -2044,8 +2057,9 @@ int razRSSI = 0;
 extern int LedSts; 
 
 void loop_web()
-{  int rc,  dt;
-static unsigned long t0=0;
+{  
+  int rc,  dt;
+  static unsigned long t0=0;
 
 //  portal.handleClient();
 
@@ -2146,7 +2160,7 @@ static unsigned long t0=0;
 
   portal.handleClient();
 
-   if(rc != WiFists)
+  if(rc != WiFists)
   { 
 #if defined SERIAL_DEBUG      
     Serial_db.printf("WiFi.status=%i\n", rc);
