@@ -42,6 +42,31 @@ AutoConnectFS::FS& FlashFS = AUTOCONNECT_APPLIED_FILESYSTEM;
 char SmartDevice::BiosDate[12]=__DATE__;   /* дата компиляции биоса */
 #endif
 
+class MyAutoConnect : public AutoConnect {
+public:
+    void handleClient() {
+        Serial.println("Дополнительная обработка перед handleClient");
+        performPreActions();
+        
+        // Вызов оригинального handleClient()
+        AutoConnect::handleClient();
+        
+        Serial.println("Дополнительная обработка после handleClient");
+        performPostActions();
+    }
+
+private:
+    void performPreActions() {
+
+    }
+
+    void performPostActions() {
+
+    }
+
+    unsigned long lastCheck = 0;
+};
+
 extern  SD_Termo SmOT;
 int WiFiDebugInfo[10] ={0,0,0,0,0, 0,0,0,0,0};
 unsigned int OTDebugInfo[12] ={0,0,0,0,0, 0,0,0,0,0, 0,0};
@@ -231,7 +256,7 @@ AutoConnectAux debugPage(DEBUG_URI, "Debug", true, {Info1, Info2, Info3, Info4, 
 AutoConnectAux AboutPage(ABOUT_URI, "About", true, { About_0, Info1, Info2, Info3});
 
 AutoConnectConfig config;
-AutoConnect portal;
+MyAutoConnect portal;
 
 
 /************************************/
