@@ -1,5 +1,6 @@
 ﻿/* Web.cpp  UTF-8  */
 
+#include <unistd.h> // sleep
 #if defined(ARDUINO_ARCH_ESP8266)
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
@@ -48,40 +49,101 @@ char SmartDevice::BiosDate[12]=__DATE__;   /* дата компиляции би
 const char* AUTH_USERNAME = "admin";
 const char* AUTH_PASSWORD = "password";
 const char* AUTH_REALM = "SmartTherm Authentication Required";
+
 class MyAutoConnect : public AutoConnect {
 public:
-    void handleClient() {      
-        // Проверим аутентификацию клиента
-        WiFiWebServer&  webServer = this->host();
-        if (!checkAuth(webServer)) {
-          Serial.println("Пройдите аутентификацию");
-          webServer.sendHeader("Location", String("http://") + webServer.client().localIP().toString() + String("/"));
-          webServer.send(302, "text/plain", "");
-          webServer.client().flush();
-          webServer.client().stop();     
-        }
+    String lastUri;
 
-        // Вызов оригинального handleClient()
+    void handleClient() {      
+        Serial.println("Before AutoConnect::handleRequest, uri=" + this->host().uri());
         AutoConnect::handleClient();
-        
+        Serial.println("After AutoConnect::handleRequest, uri=" + this->host().uri());
+        logInfo("Client Info");
         performPostActions();
     }
 
+    void handleRequest() {
+        WiFiWebServer& webServer = this->host();
+        lastUri = webServer.uri();
+
+        if (!checkAuth(webServer)) {
+            webServer.requestAuthentication(DIGEST_AUTH, AUTH_REALM);
+            return;
+        }
+
+        Serial.println("Before AutoConnect::handleRequest, uri=" + this->host().uri());
+        AutoConnect::handleRequest();
+        Serial.println("After AutoConnect::handleRequest, uri=" + this->host().uri());
+
+        logInfo("Request Info");
+    }
+
 private:
-    // TODO: https://github.com/khoih-prog/WiFiWebServer/blob/master/examples/SimpleAuthentication/SimpleAuthentication.ino
-    bool checkAuth(WiFiWebServer& server) {     
-      if (!server.authenticate(AUTH_USERNAME, AUTH_PASSWORD)) {
-          server.requestAuthentication(DIGEST_AUTH, AUTH_REALM);
-          return false;
-      }
-      return true;
+    bool checkAuth(WiFiWebServer& server) {
+        if ((this->host().uri() == "/" || this->host().uri().startsWith("/_ac") || this->host().uri() == "/login") || (!server.authenticate(AUTH_USERNAME, AUTH_PASSWORD))) {
+            server.requestAuthentication(DIGEST_AUTH, AUTH_REALM);
+            return false;
+        }
+        return true;
+    }
+
+    void logInfo(const String& title) {
+        Serial.println("\n--- " + title + " ---");
+        Serial.println("URI: " + this->host().uri());
+        
+        // Метод запроса
+        auto httpMethod = this->host().method();
+        String methodStr = methodToString(httpMethod);
+        Serial.println("Method: " + methodStr);
+
+        // Аргументы
+        logArguments();
+        
+        // Заголовки
+        logHeaders();
+        
+        // Client IP
+        IPAddress clientIp = this->host().client().remoteIP();
+        Serial.println("Client IP: " + clientIp.toString());
+        sleep(5);
+    }
+
+    String methodToString(HTTPMethod method) {
+        switch (method) {
+            case HTTP_GET: return "GET";
+            case HTTP_POST: return "POST";
+            case HTTP_PUT: return "PUT";
+            case HTTP_DELETE: return "DELETE";
+            case HTTP_HEAD: return "HEAD";
+            case HTTP_OPTIONS: return "OPTIONS";
+            case HTTP_PATCH: return "PATCH";
+            default: return "UNKNOWN";
+        }
+    }
+
+    void logArguments() {
+        int argsNum = this->host().args();
+        Serial.println("Arguments (" + String(argsNum) + ")");
+        for(int i = 0; i < argsNum; ++i) {
+            String argName = this->host().argName(i);
+            String argValue = this->host().arg(i);
+            Serial.println("[" + argName + "] => " + argValue);
+        }
+    }
+
+    void logHeaders() {
+        int headersNum = this->host().headers();
+        Serial.println("Headers (" + String(headersNum) + ")");
+        for(int i = 0; i < headersNum; ++i) {
+            String headerKey = this->host().headerName(i);
+            String headerVal = this->host().header(i);
+            Serial.println("[" + headerKey + "] => " + headerVal);
+        }
     }
 
     void performPostActions() {
-
+        // Реализуйте пост-обработку здесь
     }
-
-    unsigned long lastCheck = 0;
 };
 #endif
 
@@ -1993,7 +2055,8 @@ const char SM_OT_HomePage[]= "https://t.me/smartTherm";
 //"https://www.umkikit.ru/index.php?route=product/product&path=67&product_id=103";
 
 String onAbout(AutoConnectAux& aux, PageArgument& args)
-{ char str[80];
+{ 
+  char str[80];
   Info1.value = IDENTIFY_TEXT;
   sprintf(str, (PGM_P)F("Vers %d.%d.%d.%d  build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
 
