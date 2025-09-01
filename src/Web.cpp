@@ -42,7 +42,7 @@ AutoConnectFS::FS& FlashFS = AUTOCONNECT_APPLIED_FILESYSTEM;
 char SmartDevice::BiosDate[12]=__DATE__;   /* дата компиляции биоса */
 #endif
 
-const char* INFO_URI  = "/info";
+
 
 #if defined(ARDUINO_ARCH_ESP32)
 const char* AUTH_USERNAME = "admin";
@@ -55,13 +55,12 @@ public:
         WiFiWebServer&  webServer = this->host();
         if (!checkAuth(webServer)) {
           Serial.println("Пройдите аутентификацию");
-          /*webServer.sendHeader("Location", String("http://") + webServer.client().localIP().toString() + String(INFO_URI));
+          webServer.sendHeader("Location", String("http://") + webServer.client().localIP().toString() + String("/"));
           webServer.send(302, "text/plain", "");
           webServer.client().flush();
-          webServer.client().stop();*/
-          //return;            
+          webServer.client().stop();     
         }
-       
+
         // Вызов оригинального handleClient()
         AutoConnect::handleClient();
         
@@ -69,6 +68,7 @@ public:
     }
 
 private:
+    // TODO: https://github.com/khoih-prog/WiFiWebServer/blob/master/examples/SimpleAuthentication/SimpleAuthentication.ino
     bool checkAuth(WiFiWebServer& server) {     
       if (!server.authenticate(AUTH_USERNAME, AUTH_PASSWORD)) {
           server.requestAuthentication(DIGEST_AUTH, AUTH_REALM);
@@ -92,6 +92,7 @@ extern OpenThermID OT_ids[N_OT_NIDS];
 unsigned int OTcount = 0;
 
 /*********************************/
+const char* INFO_URI  = "/info";
 const char* SETUP_URI = "/setup";
 const char* RELAY_URI = "/relay";
 const char* BLOR_URI  = "/blor";
@@ -319,14 +320,6 @@ String utc_time_jc;
 unsigned int /* AutoConnect:: */ _toWiFiQuality(int32_t rssi);
 
 
-bool checkAuth(WiFiWebServer& server) {
-    if (!server.authenticate(AUTH_USERNAME, AUTH_PASSWORD)) {
-        server.requestAuthentication(DIGEST_AUTH, AUTH_REALM);
-        return false;
-    }
-    return true;
-}
-
 void setup_web_common(void)
 {   
    Serial.println();
@@ -547,17 +540,11 @@ void onConnect(IPAddress& ipaddr)
 
 // Redirects from root to the info page.
 void onRoot() {
-    WiFiWebServer& webServer = portal.host();
-    
-    // Проверяем аутентификацию
-    if (!checkAuth(webServer)) {
-        return;
-    }
-    
-    webServer.sendHeader("Location", String("http://") + webServer.client().localIP().toString() + String(INFO_URI));
-    webServer.send(302, "text/plain", "");
-    webServer.client().flush();
-    webServer.client().stop();
+  WiFiWebServer& webServer = portal.host();
+  webServer.sendHeader("Location", String("http://") + webServer.client().localIP().toString() + String(INFO_URI));
+  webServer.send(302, "text/plain", "");
+  webServer.client().flush();
+  webServer.client().stop();
 }
 
 float mRSSi = 0.;
@@ -685,11 +672,6 @@ extern int minRamFree;
 
 String onSetTemp(AutoConnectAux& aux, PageArgument& args)
 {
-  WiFiWebServer& webServer = portal.host();
-
-  if (!checkAuth(webServer)) {
-      return String();
-  }
    float  v;
    int isChange=0;
 
@@ -737,11 +719,6 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
 // goes here from on_Setup
 String onSetPar(AutoConnectAux& aux, PageArgument& args)
 {
-  WiFiWebServer& webServer = portal.host();
-
-  if (!checkAuth(webServer)) {
-        return String();
-  }
   int isChange=0,  redir = 0, v;
   bool check;
 
@@ -973,12 +950,6 @@ String onSetPar(AutoConnectAux& aux, PageArgument& args)
 // SET_ADD_URI
 String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
 {
-  WiFiWebServer& webServer = portal.host();
-
-  if (!checkAuth(webServer)) {
-        return String();
-  }
-
   int isChange=0, redir = 0;
    unsigned short int icheck;
    unsigned short int v2;
@@ -1067,11 +1038,6 @@ String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
 //SETUP_ADD_URI
 String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
 {
-  WiFiWebServer& webServer = portal.host();
-
-  if (!checkAuth(webServer)) {
-        return String();
-  }
   char str[40];
 
   if( SmOT.UseID2)
@@ -1137,11 +1103,6 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
 
 // Main info page
 String onInfo(AutoConnectAux& aux, PageArgument& args) {
-  WiFiWebServer& webServer = portal.host();
-
-  if (!checkAuth(webServer)) {
-    return String();
-  }
   char str0[256];
   extern OpenTherm ot;
 
@@ -1536,11 +1497,6 @@ if(SmOT.useMQTT)
 // see as well on_setpar()
 String on_Setup(AutoConnectAux& aux, PageArgument& args)
 {
-  WiFiWebServer& webServer = portal.host();
-  
-  if (!checkAuth(webServer)) {
-    return String();
-  }
   const char *pstr; 
   char str[40]; 
     
