@@ -63,6 +63,7 @@ public:
     }
 
     void handleRequest() {
+      
         WiFiWebServer& webServer = this->host();
         lastUri = webServer.uri();
 
@@ -603,6 +604,7 @@ void onConnect(IPAddress& ipaddr)
 // Redirects from root to the info page.
 void onRoot() {
   WiFiWebServer& webServer = portal.host();
+  Serial.println("onRoot URI:" + webServer.uri());
   webServer.sendHeader("Location", String("http://") + webServer.client().localIP().toString() + String(INFO_URI));
   webServer.send(302, "text/plain", "");
   webServer.client().flush();
@@ -1165,6 +1167,8 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
 
 // Main info page
 String onInfo(AutoConnectAux& aux, PageArgument& args) {
+  Serial.println("onInfo aux uri: " + String(aux.uri()));
+
   char str0[256];
   extern OpenTherm ot;
 
