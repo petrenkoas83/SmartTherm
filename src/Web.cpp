@@ -50,16 +50,21 @@ const char* AUTH_USERNAME = "admin";
 const char* AUTH_PASSWORD = "password";
 const char* AUTH_REALM = "SmartTherm Authentication Required";
 
+bool checkAuth(WiFiWebServer& server) {
+    if (!server.authenticate(AUTH_USERNAME, AUTH_PASSWORD)) {
+        server.requestAuthentication(DIGEST_AUTH, AUTH_REALM);
+        return false;
+    }
+    return true;
+}
+
 class MyAutoConnect : public AutoConnect {
 public:
     String lastUri;
 
     void handleClient() {      
-        Serial.println("Before AutoConnect::handleRequest, uri=" + this->host().uri());
         AutoConnect::handleClient();
-        Serial.println("After AutoConnect::handleRequest, uri=" + this->host().uri());
-        logInfo("Client Info");
-        performPostActions();
+        //logPortal("Client Info", this);
     }
 
     void handleRequest() {
@@ -71,81 +76,68 @@ public:
             webServer.requestAuthentication(DIGEST_AUTH, AUTH_REALM);
             return;
         }
-
-        Serial.println("Before AutoConnect::handleRequest, uri=" + this->host().uri());
         AutoConnect::handleRequest();
-        Serial.println("After AutoConnect::handleRequest, uri=" + this->host().uri());
-
-        logInfo("Request Info");
+        //logInfo("Request Info");
     }
 
 private:
-    bool checkAuth(WiFiWebServer& server) {
-        if ((this->host().uri() == "/" || this->host().uri().startsWith("/_ac") || this->host().uri() == "/login") || (!server.authenticate(AUTH_USERNAME, AUTH_PASSWORD))) {
-            server.requestAuthentication(DIGEST_AUTH, AUTH_REALM);
-            return false;
-        }
-        return true;
-    }
-
-    void logInfo(const String& title) {
-        Serial.println("\n--- " + title + " ---");
-        Serial.println("URI: " + this->host().uri());
-        
-        // Метод запроса
-        auto httpMethod = this->host().method();
-        String methodStr = methodToString(httpMethod);
-        Serial.println("Method: " + methodStr);
-
-        // Аргументы
-        logArguments();
-        
-        // Заголовки
-        logHeaders();
-        
-        // Client IP
-        IPAddress clientIp = this->host().client().remoteIP();
-        Serial.println("Client IP: " + clientIp.toString());
-        sleep(5);
-    }
-
-    String methodToString(HTTPMethod method) {
-        switch (method) {
-            case HTTP_GET: return "GET";
-            case HTTP_POST: return "POST";
-            case HTTP_PUT: return "PUT";
-            case HTTP_DELETE: return "DELETE";
-            case HTTP_HEAD: return "HEAD";
-            case HTTP_OPTIONS: return "OPTIONS";
-            case HTTP_PATCH: return "PATCH";
-            default: return "UNKNOWN";
-        }
-    }
-
-    void logArguments() {
-        int argsNum = this->host().args();
-        Serial.println("Arguments (" + String(argsNum) + ")");
-        for(int i = 0; i < argsNum; ++i) {
-            String argName = this->host().argName(i);
-            String argValue = this->host().arg(i);
-            Serial.println("[" + argName + "] => " + argValue);
-        }
-    }
-
-    void logHeaders() {
-        int headersNum = this->host().headers();
-        Serial.println("Headers (" + String(headersNum) + ")");
-        for(int i = 0; i < headersNum; ++i) {
-            String headerKey = this->host().headerName(i);
-            String headerVal = this->host().header(i);
-            Serial.println("[" + headerKey + "] => " + headerVal);
-        }
-    }
-
-    void performPostActions() {
-        // Реализуйте пост-обработку здесь
-    }
+    
 };
+
+String methodToString(HTTPMethod method) {
+  switch (method) {
+      case HTTP_GET: return "GET";
+      case HTTP_POST: return "POST";
+      case HTTP_PUT: return "PUT";
+      case HTTP_DELETE: return "DELETE";
+      case HTTP_HEAD: return "HEAD";
+      case HTTP_OPTIONS: return "OPTIONS";
+      case HTTP_PATCH: return "PATCH";
+      default: return "UNKNOWN";
+  }
+}
+
+void logArguments(AutoConnect& portal) {
+  int argsNum = portal.host().args();
+  Serial.println("Arguments (" + String(argsNum) + ")");
+  for(int i = 0; i < argsNum; ++i) {
+      String argName = portal.host().argName(i);
+      String argValue = portal.host().arg(i);
+      Serial.println("[" + argName + "] => " + argValue);
+  }
+}
+
+void logHeaders(AutoConnect& portal) {
+  int headersNum = portal.host().headers();
+  Serial.println("Headers (" + String(headersNum) + ")");
+  for(int i = 0; i < headersNum; ++i) {
+      String headerKey = portal.host().headerName(i);
+      String headerVal = portal.host().header(i);
+      Serial.println("[" + headerKey + "] => " + headerVal);
+  }
+}
+
+void logPortal(String title, AutoConnect& portal) {
+  Serial.println("\n--- " + title + " ---");
+  Serial.println("URI: " + portal.host().uri());
+  
+  // Метод запроса
+  auto httpMethod = portal.host().method();
+  String methodStr = methodToString(httpMethod);
+  Serial.println("Method: " + methodStr);
+
+  // Аргументы
+  logArguments(portal);
+  
+  // Заголовки
+  logHeaders(portal);
+  
+  // Client IP
+  IPAddress clientIp = portal.host().client().remoteIP();
+  Serial.println("Client IP: " + clientIp.toString());
+
+  sleep(5);
+}
 #endif
 
 extern  SD_Termo SmOT;
@@ -516,7 +508,8 @@ void time_sync_notification_cb(struct timeval *tv) {
 }
 
 int setup_web_common_onconnect(void)
-{ static int init = 0;
+{ 
+  static int init = 0;
   int rc;
 
   //Serial_db.printf("setup_web_common_onconnect init %d\n", init);
@@ -604,6 +597,12 @@ void onConnect(IPAddress& ipaddr)
 // Redirects from root to the info page.
 void onRoot() {
   WiFiWebServer& webServer = portal.host();
+  if (!checkAuth(webServer)) {
+      webServer.requestAuthentication(BASIC_AUTH, AUTH_REALM);
+      return;
+  }
+  logPortal("logPortal onRoot", portal);
+
   Serial.println("onRoot URI:" + webServer.uri());
   webServer.sendHeader("Location", String("http://") + webServer.client().localIP().toString() + String(INFO_URI));
   webServer.send(302, "text/plain", "");
@@ -619,9 +618,19 @@ int OutUTCtime(time_t now);
 #include "esp32/rom/rtc.h"
 
 String onDebug(AutoConnectAux& aux, PageArgument& args)
-{  char str[256];
+{  
+  logPortal("logPortal onDebug pre authentication", portal);
+  WiFiWebServer& webServer = portal.host();
+  if (!checkAuth(webServer)) {
+      webServer.requestAuthentication(BASIC_AUTH, AUTH_REALM);
+      logPortal("logPortal onDebug Authentication error", portal);
+      return "Authentication error";
+  }
+  logPortal("logPortal onDebug Authentication successfull", portal);
+
+  char str[256];
   // int l;
-extern int minRamFree;
+  extern int minRamFree;
 
 //Serial_db.drop();
 
@@ -736,6 +745,8 @@ extern int minRamFree;
 
 String onSetTemp(AutoConnectAux& aux, PageArgument& args)
 {
+   logPortal("logPortal onSetTemp", portal);
+
    float  v;
    int isChange=0;
 
@@ -783,6 +794,7 @@ String onSetTemp(AutoConnectAux& aux, PageArgument& args)
 // goes here from on_Setup
 String onSetPar(AutoConnectAux& aux, PageArgument& args)
 {
+  logPortal("logPortal onSetPar", portal);
   int isChange=0,  redir = 0, v;
   bool check;
 
@@ -1102,6 +1114,8 @@ String onSetAddPar(AutoConnectAux& aux, PageArgument& args)
 //SETUP_ADD_URI
 String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
 {
+  logPortal("logPortal on_SetupAdd", portal);
+
   char str[40];
 
   if( SmOT.UseID2)
@@ -1167,6 +1181,8 @@ String on_SetupAdd(AutoConnectAux& aux, PageArgument& args)
 
 // Main info page
 String onInfo(AutoConnectAux& aux, PageArgument& args) {
+  logPortal("logPortal onInfo", portal);
+
   Serial.println("onInfo aux uri: " + String(aux.uri()));
 
   char str0[256];
@@ -1563,6 +1579,8 @@ if(SmOT.useMQTT)
 // see as well on_setpar()
 String on_Setup(AutoConnectAux& aux, PageArgument& args)
 {
+  logPortal("logPortal on_Setup", portal);
+
   const char *pstr; 
   char str[40]; 
     
@@ -2048,7 +2066,8 @@ String onSetupOT_slave(AutoConnectAux& aux, PageArgument& args)
 //SendBLORPage
 String onSendBlor(AutoConnectAux& aux, PageArgument& args)
 {
-    SmOT.need_set_blor();
+  logPortal("logPortal onSendBlor", portal);
+  SmOT.need_set_blor();
 
   aux.redirect(INFO_URI);
   return String();
@@ -2060,6 +2079,8 @@ const char SM_OT_HomePage[]= "https://t.me/smartTherm";
 
 String onAbout(AutoConnectAux& aux, PageArgument& args)
 { 
+  logPortal("logPortal onAbout", portal);
+
   char str[80];
   Info1.value = IDENTIFY_TEXT;
   sprintf(str, (PGM_P)F("Vers %d.%d.%d.%d  build %s\n"),SmOT.Vers, SmOT.SubVers,SmOT.SubVers1,SmOT.Revision, SmOT.BiosDate);
