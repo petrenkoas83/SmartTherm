@@ -58,32 +58,6 @@ bool checkAuth(WiFiWebServer& server) {
     return true;
 }
 
-class MyAutoConnect : public AutoConnect {
-public:
-    String lastUri;
-
-    void handleClient() {      
-        AutoConnect::handleClient();
-        //logPortal("Client Info", this);
-    }
-
-    void handleRequest() {
-      
-        WiFiWebServer& webServer = this->host();
-        lastUri = webServer.uri();
-
-        if (!checkAuth(webServer)) {
-            webServer.requestAuthentication(DIGEST_AUTH, AUTH_REALM);
-            return;
-        }
-        AutoConnect::handleRequest();
-        //logInfo("Request Info");
-    }
-
-private:
-    
-};
-
 String methodToString(HTTPMethod method) {
   switch (method) {
       case HTTP_GET: return "GET";
@@ -325,7 +299,8 @@ AutoConnectAux debugPage(DEBUG_URI, "Debug", true, {Info1, Info2, Info3, Info4, 
 AutoConnectAux AboutPage(ABOUT_URI, "About", true, { About_0, Info1, Info2, Info3});
 
 AutoConnectConfig config;
-MyAutoConnect portal;
+AutoConnect portal;
+WiFiWebServer& webServer = portal.host();
 
 
 /************************************/
@@ -461,12 +436,11 @@ void setup_web_common(void)
   config.autoReconnect = true;
   config.reconnectInterval = 2; //1;
   config.menuItems = config.menuItems | AC_MENUITEM_DELETESSID;
-   Serial_db.printf("WiFi psk=%s\n", config.psk.c_str());
+  Serial_db.printf("WiFi psk=%s\n", config.psk.c_str());
   
   portal.config(config);
   portal.onConnect(onConnect);  // Register the ConnectExit function
   portal.begin();
-
   WiFiWebServer&  webServer = portal.host();
 
   webServer.on("/", onRoot);  // Register the root page redirector.
@@ -596,14 +570,15 @@ void onConnect(IPAddress& ipaddr)
 
 // Redirects from root to the info page.
 void onRoot() {
-  WiFiWebServer& webServer = portal.host();
+  logPortal("logPortal onRoot pre authentication", portal);
+
   if (!checkAuth(webServer)) {
+      logPortal("logPortal onDebug not authenticated", portal);
       webServer.requestAuthentication(BASIC_AUTH, AUTH_REALM);
       return;
   }
   logPortal("logPortal onRoot", portal);
 
-  Serial.println("onRoot URI:" + webServer.uri());
   webServer.sendHeader("Location", String("http://") + webServer.client().localIP().toString() + String(INFO_URI));
   webServer.send(302, "text/plain", "");
   webServer.client().flush();
@@ -620,11 +595,10 @@ int OutUTCtime(time_t now);
 String onDebug(AutoConnectAux& aux, PageArgument& args)
 {  
   logPortal("logPortal onDebug pre authentication", portal);
-  WiFiWebServer& webServer = portal.host();
   if (!checkAuth(webServer)) {
-      webServer.requestAuthentication(BASIC_AUTH, AUTH_REALM);
-      logPortal("logPortal onDebug Authentication error", portal);
-      return "Authentication error";
+    logPortal("logPortal onDebug not authenticated", portal);
+    webServer.requestAuthentication(BASIC_AUTH, AUTH_REALM);
+    return "Authentication error";
   }
   logPortal("logPortal onDebug Authentication successfull", portal);
 
