@@ -112,6 +112,7 @@ void logPortal(String title, AutoConnect& portal) {
 
   sleep(5);
 }
+
 #endif
 
 extern  SD_Termo SmOT;
@@ -300,8 +301,79 @@ AutoConnectAux AboutPage(ABOUT_URI, "About", true, { About_0, Info1, Info2, Info
 
 AutoConnectConfig config;
 AutoConnect portal;
-WiFiWebServer& webServer = portal.host();
 
+bool is_authenticated(WiFiWebServer& webServer)
+{
+  Serial.println(F("Enter is_authenticated"));
+
+  if (webServer.hasHeader(F("Cookie")))
+  {
+    Serial.print(F("Found cookie: "));
+    String cookie = webServer.header(F("Cookie"));
+    Serial.println(cookie);
+
+    if (cookie.indexOf(F("NINASESSIONID=1")) != -1)
+    {
+      Serial.println(F("Authentication Successful"));
+      return true;
+    }
+  }
+
+  Serial.println(F("Authentication Failed"));
+  sleep(5);
+  return false;
+}
+
+void handleLogin(WiFiWebServer& webServer)
+{
+  logPortal("logPortal pre handleLogin", portal);
+  String msg;
+
+  if (webServer.hasHeader(F("Cookie")))
+  {
+    Serial.print(F("Found cookie: "));
+
+    String cookie = webServer.header(F("Cookie"));
+    Serial.println(cookie);
+  }
+
+  if (webServer.hasArg("DISCONNECT"))
+  {
+    Serial.println(F("Disconnection"));
+    webServer.sendHeader(F("Location"), F("/login"));
+    webServer.sendHeader(F("Cache-Control"), F("no-cache"));
+    webServer.sendHeader(F("Set-Cookie"), F("NINASESSIONID=0"));
+    webServer.send(301);
+    return;
+  }
+
+  if (webServer.hasArg(F("USERNAME")) && webServer.hasArg(F("PASSWORD")))
+  {
+    if (webServer.arg(F("USERNAME")) == "admin" &&  webServer.arg(F("PASSWORD")) == "admin")
+    {
+      webServer.sendHeader(F("Location"), F("/"));
+      webServer.sendHeader(F("Cache-Control"), F("no-cache"));
+      webServer.sendHeader(F("Set-Cookie"), F("NINASESSIONID=1"));
+      webServer.send(301);
+      Serial.println(F("Log in Successful"));
+      return;
+    }
+
+    msg = F("Wrong username/password! try again.");
+    Serial.println(F("Log in Failed"));
+  }
+
+  String content = F("<html><body><form action='/login' method='POST'>To log in, please use : admin/admin<br>");
+  content += F("User:<input type='text' name='USERNAME' placeholder='user name'><br>");
+  content += F("Password:<input type='password' name='PASSWORD' placeholder='password'><br>");
+  content += F("<input type='submit' name='SUBMIT' value='Submit'></form>");
+  content += msg;
+  content += F("<br>");
+  content += F("You also can go <a href='/inline'>here</a></body></html>");
+
+  webServer.send(200, F("text/html"), content);
+  logPortal("logPortal post handleLogin", portal);
+}
 
 /************************************/
 //int test_fs(void);
@@ -570,11 +642,11 @@ void onConnect(IPAddress& ipaddr)
 
 // Redirects from root to the info page.
 void onRoot() {
+  WiFiWebServer& webServer = portal.host();
   logPortal("logPortal onRoot pre authentication", portal);
-
-  if (!checkAuth(webServer)) {
+  if (!is_authenticated(webServer)) {
       logPortal("logPortal onDebug not authenticated", portal);
-      webServer.requestAuthentication(BASIC_AUTH, AUTH_REALM);
+      handleLogin(webServer);
       return;
   }
   logPortal("logPortal onRoot", portal);
@@ -594,10 +666,11 @@ int OutUTCtime(time_t now);
 
 String onDebug(AutoConnectAux& aux, PageArgument& args)
 {  
+  WiFiWebServer& webServer = portal.host();
   logPortal("logPortal onDebug pre authentication", portal);
-  if (!checkAuth(webServer)) {
+  if (!is_authenticated(webServer)) {
     logPortal("logPortal onDebug not authenticated", portal);
-    webServer.requestAuthentication(BASIC_AUTH, AUTH_REALM);
+    handleLogin(webServer);
     return "Authentication error";
   }
   logPortal("logPortal onDebug Authentication successfull", portal);
