@@ -12,6 +12,22 @@ Use:
 
 Build with [PlatformIO](https://platformio.org/)
 
+### Опциональная поддержка HTTPS
+Можно включить HTTPS-сервер на порту 443: при обращении по `https://IP/...` браузер перенаправляется на `http://IP/...`. Интерфейс (AutoConnect) продолжает работать по HTTP. Включение увеличивает размер прошивки примерно на 300 KB.
+
+**ВАЖНО:** Прошивка с HTTPS может не поместиться в стандартный раздел приложения (1.31 MB) на платах ESP32 с 4 MB flash. Текущий размер с оптимизацией: ~1.49 MB.
+
+**Варианты решения:**
+1. **Использовать env `esp32devdeb_https`** — сборка с HTTPS, оптимизацией для размера и **минимальным набором веб-страниц** (`-DWEB_PAGES_MINIMAL`): только Setup (логин/пароль, диапазоны температуры, настройки MQTT). Остальное управление через MQTT. Размер: ~1.47 MB (превышение ~155 KB). Отключены страницы: Info, About, Debug, SetTemp, SetupAdd, SendBLOR, PID, Relay, OT2.
+2. **Изменить partition table** — увеличить раздел приложения за счёт других разделов (например, уменьшить OTA или файловую систему).
+3. **Отключить MQTT** — в `src/Smart_Config.h` изменить `#define MQTT_USE 0` для ESP32 (экономия ~50-100 KB, но теряется функциональность MQTT/PID).
+4. **Использовать плату с большим flash** (8 MB или больше).
+
+**Как включить HTTPS:**
+1. Использовать env `esp32devdeb_https` в `platformio.ini` (уже настроен с оптимизацией и своей partition table).
+2. В каталоге проекта уже есть `compat/esp32/hwcrypto/sha.h` для совместимости библиотеки с текущим ядром ESP32.
+3. **Сертификат:** по умолчанию генерируется **на хосте при сборке** (RSA 2048) и встраивается в прошивку (`include/cert_embed.h`). Если файла нет — перед сборкой автоматически вызывается `scripts/generate_https_cert.sh` (нужны `openssl` и `python3`). Ручной запуск: `bash scripts/generate_https_cert.sh`. Раньше сертификат создавался на контроллере при первом запуске (до ~1 мин) — этот режим отключён для env `esp32devdeb_https`.
+
 Features:
 * [Captive portal](https://en.wikipedia.org/wiki/Captive_portal) before WiFi connection
 * Web interface after WiFi connection

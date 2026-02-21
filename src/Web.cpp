@@ -10,6 +10,13 @@ using WiFiWebServer = ESP8266WebServer;
 #include <WebServer.h>
 using WiFiWebServer = WebServer;
 #define FORMAT_ON_FAIL  true
+#if defined(USE_HTTPS)
+#include <HTTPSServer.hpp>
+#include <SSLCert.hpp>
+#include <HTTPRequest.hpp>
+#include <HTTPResponse.hpp>
+using namespace httpsserver;
+#endif
 #endif
 
 #include <time.h>
@@ -31,6 +38,24 @@ unsigned int OTcount = 0;
 AutoConnectConfig config;
 AutoConnect portal;
 unsigned long authRealmCounter = 0; // Счетчик для изменения realm при disconnect
+
+#if defined(ARDUINO_ARCH_ESP32) && defined(USE_HTTPS)
+static SSLCert* g_httpsCert = nullptr;
+static HTTPSServer* g_httpsServer = nullptr;
+
+static void handleHttpsRedirect(HTTPRequest* req, HTTPResponse* res) {
+  req->discardRequestBody();
+  IPAddress ip = (WiFi.getMode() & WIFI_STA) && (WiFi.status() == WL_CONNECTED) ? WiFi.localIP() : WiFi.softAPIP();
+  String path = req->getRequestString().c_str();
+  if (path.length() == 0) path = "/";
+  String location = String("http://") + ip.toString() + path;
+  res->setStatusCode(302);
+  res->setStatusText("Found");
+  res->setHeader("Location", location.c_str());
+  res->setHeader("Content-Type", "text/plain");
+  res->println("Redirecting to HTTP...");
+}
+#endif
 
 // Forward
 void onRoot(void);
@@ -100,6 +125,38 @@ void setup_web_common(void) {
   /* When using AutoConnect with max_time_use support: portal.max_time_use = 200; portal.callback_at_maxtime = OTloop_callback; */
 
   portal.begin();
+
+#if defined(ARDUINO_ARCH_ESP32) && defined(USE_HTTPS)
+  // HTTPS-сервер на порту 443: редирект на HTTP (AutoConnect работает только по HTTP)
+#if defined(USE_HTTPS_PRECOMPILED_CERT)
+  #include "cert_embed.h"
+  g_httpsCert = new SSLCert(
+    (unsigned char*)https_cert_der, (uint16_t)https_cert_der_len,
+    (unsigned char*)https_key_der, (uint16_t)https_key_der_len);
+#else
+  Serial_db.printf("HTTPS: creating self-signed certificate (may take up to 1 min)...\n");
+  g_httpsCert = new SSLCert();
+  int cr = createSelfSignedCert(*g_httpsCert, KEYSIZE_1024, "CN=SmartTherm.local,O=SmartTherm,C=RU", "20200101000000", "20301231235959");
+  if (cr != 0) {
+    Serial_db.printf("HTTPS: certificate creation failed, code=0x%02X\n", cr);
+    delete g_httpsCert;
+    g_httpsCert = nullptr;
+  }
+#endif
+  if (g_httpsCert != nullptr) {
+    g_httpsServer = new HTTPSServer(g_httpsCert);
+    ResourceNode* nodeRedirect = new ResourceNode("", "GET", &handleHttpsRedirect);
+    g_httpsServer->setDefaultNode(nodeRedirect);
+    g_httpsServer->start();
+    if (g_httpsServer->isRunning()) {
+      Serial_db.printf("HTTPS: server listening on port 443 (redirect to HTTP)\n");
+    } else {
+      Serial_db.printf("HTTPS: server start failed\n");
+      delete g_httpsServer;
+      g_httpsServer = nullptr;
+    }
+  }
+#endif
 
   WiFiWebServer&  webServer = portal.host();
   
@@ -278,7 +335,12 @@ void onRoot() {
       return;
     }
   }
-  webServer.sendHeader("Location", String("http://") + webServer.client().localIP().toString() + String(INFO_URI));
+#if defined(WEB_PAGES_MINIMAL)
+  const char* redirectUri = SETUP_URI;  /* только Setup: логин, пароль, диапазоны, MQTT */
+#else
+  const char* redirectUri = INFO_URI;
+#endif
+  webServer.sendHeader("Location", String("http://") + webServer.client().localIP().toString() + String(redirectUri));
   webServer.send(302, "text/plain", "");
   webServer.client().flush();
   webServer.client().stop();
@@ -325,6 +387,12 @@ void loop_web() {
   }
 
   portal.handleClient();
+
+#if defined(ARDUINO_ARCH_ESP32) && defined(USE_HTTPS)
+  if (g_httpsServer && g_httpsServer->isRunning()) {
+    g_httpsServer->loop();
+  }
+#endif
 
   if(rc != WiFists) {
 #if SERIAL_DEBUG

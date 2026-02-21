@@ -115,7 +115,9 @@ void Add_SetupElements() {
   Setup_Page.add(SetMQTT_interval);
 #endif
   Setup_Page.add(CtrlChB_UseRemoteControl);
-  Setup_Page.add(ApplyAdd);
+#if !defined(WEB_PAGES_MINIMAL)
+  Setup_Page.add(ApplyAdd);   /* Дополнительно → SetupAdd, PID и т.д. */
+#endif
   Setup_Page.add(ApplyChB);
 }
 

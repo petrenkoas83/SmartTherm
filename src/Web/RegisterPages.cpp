@@ -4,27 +4,32 @@
 #include "Shared.hpp"
 #include "SmartDebug.h"
 
-// Forward Register_* from each page module
+// Forward Register_* from each page module (only when page is included in build)
+#if !defined(WEB_PAGES_MINIMAL)
 void Register_Info(AutoConnect& portal);
 void Register_About(AutoConnect& portal);
 void Register_Debug(AutoConnect& portal);
 void Register_SetTemp(AutoConnect& portal);
-void Register_SetPar(AutoConnect& portal);
-void Register_Setup(AutoConnect& portal);
 void Register_SetupAdd(AutoConnect& portal);
 void Register_PID(AutoConnect& portal);
 void Register_Relay(AutoConnect& portal);
 void Register_OT2(AutoConnect& portal);
 void Register_SendBLOR(AutoConnect& portal);
+#endif
+void Register_SetPar(AutoConnect& portal);
+void Register_Setup(AutoConnect& portal);
 
 // All pages are registered below
 
 void RegisterWebPages(AutoConnect& portal) {
   Serial_db.printf("[RegisterWebPages] Starting page registration...\n");
+#if !defined(WEB_PAGES_MINIMAL)
   Register_Info(portal);
   Register_About(portal);
   Register_Debug(portal);
+#endif
   Register_Setup(portal);
+#if !defined(WEB_PAGES_MINIMAL)
   Register_SetupAdd(portal);
   #if PID_USE
   Register_PID(portal);
@@ -37,6 +42,7 @@ void RegisterWebPages(AutoConnect& portal) {
   #endif
   Register_SendBLOR(portal);
   Register_SetTemp(portal);
+#endif
   Serial_db.printf("[RegisterWebPages] About to register SetPar page...\n");
   Register_SetPar(portal);
   Serial_db.printf("[RegisterWebPages] All pages registered successfully\n");
