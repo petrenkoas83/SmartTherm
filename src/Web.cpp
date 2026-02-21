@@ -8,6 +8,7 @@ using WiFiWebServer = ESP8266WebServer;
 #elif defined(ARDUINO_ARCH_ESP32)
 #include <WiFi.h>
 #include <WebServer.h>
+#include <esp_task_wdt.h>
 using WiFiWebServer = WebServer;
 #define FORMAT_ON_FAIL  true
 #if defined(USE_HTTPS)
@@ -42,18 +43,146 @@ unsigned long authRealmCounter = 0; // Счетчик для изменения 
 #if defined(ARDUINO_ARCH_ESP32) && defined(USE_HTTPS)
 static SSLCert* g_httpsCert = nullptr;
 static HTTPSServer* g_httpsServer = nullptr;
+static WiFiServer* g_httpRedirectServer = nullptr;  // port 80 -> redirect to https
+static const uint16_t HTTP_BACKEND_PORT = 8080;     // AutoConnect on 8080 when USE_HTTPS
 
-static void handleHttpsRedirect(HTTPRequest* req, HTTPResponse* res) {
-  req->discardRequestBody();
-  IPAddress ip = (WiFi.getMode() & WIFI_STA) && (WiFi.status() == WL_CONNECTED) ? WiFi.localIP() : WiFi.softAPIP();
-  String path = req->getRequestString().c_str();
-  if (path.length() == 0) path = "/";
-  String location = String("http://") + ip.toString() + path;
-  res->setStatusCode(302);
-  res->setStatusText("Found");
-  res->setHeader("Location", location.c_str());
-  res->setHeader("Content-Type", "text/plain");
-  res->println("Redirecting to HTTP...");
+static void handleHttpsProxy(HTTPRequest* req, HTTPResponse* res) {
+  Serial_db.printf("[HTTPS proxy] free heap %u\n", (unsigned)ESP.getFreeHeap());
+  WiFiClient backend;
+  IPAddress backendAddr = (WiFi.getMode() & WIFI_STA) && (WiFi.status() == WL_CONNECTED) ? WiFi.localIP() : WiFi.softAPIP();
+  Serial_db.printf("[HTTPS proxy] connecting to %s:%u\n", backendAddr.toString().c_str(), (unsigned)HTTP_BACKEND_PORT);
+  if (!backend.connect(backendAddr, HTTP_BACKEND_PORT, 5000)) {
+    Serial_db.printf("[HTTPS proxy] backend connect failed\n");
+    res->setStatusCode(502);
+    res->setStatusText("Bad Gateway");
+    res->setHeader("Content-Type", "text/plain");
+    res->println("Backend unreachable");
+    req->discardRequestBody();
+    return;
+  }
+  Serial_db.printf("[HTTPS proxy] connected, sending request\n");
+  String reqLine = String(req->getMethod().c_str()) + " " + String(req->getRequestString().c_str()) + " HTTP/1.1\r\n";
+  backend.print(reqLine);
+  backend.print("Host: ");
+  backend.print(backendAddr);
+  backend.print(":");
+  backend.print(HTTP_BACKEND_PORT);
+  backend.print("\r\n");
+  std::string auth = req->getHeader("Authorization");
+  if (!auth.empty()) {
+    backend.print("Authorization: ");
+    backend.println(auth.c_str());
+  }
+  std::string ct = req->getHeader("Content-Type");
+  if (!ct.empty()) {
+    backend.print("Content-Type: ");
+    backend.println(ct.c_str());
+  }
+  size_t cl = req->getContentLength();
+  if (cl > 0 && cl < 65536) {
+    backend.print("Content-Length: ");
+    backend.print(cl);
+    backend.print("\r\n");
+  }
+  backend.print("Connection: close\r\n\r\n");
+  if (cl > 0 && cl < 65536) {
+    byte buf[256];
+    while (cl > 0) {
+      size_t n = req->readBytes(buf, cl < sizeof(buf) ? cl : sizeof(buf));
+      if (n == 0) break;
+      backend.write(buf, n);
+      cl -= n;
+    }
+  } else {
+    req->discardRequestBody();
+  }
+  backend.flush();
+  Serial_db.printf("[HTTPS proxy] request sent, waiting for response\n");
+  unsigned long t0 = millis();
+  while (!backend.available() && backend.connected() && millis() - t0 < 10000) {
+    portal.handleClient();  // даём HTTP-серверу обработать соединение на 8080
+    esp_task_wdt_reset();
+    yield();
+    delay(1);
+  }
+  if (!backend.available()) {
+    Serial_db.printf("[HTTPS proxy] backend timeout (no data)\n");
+    res->setStatusCode(502);
+    res->setStatusText("Bad Gateway");
+    res->setHeader("Content-Type", "text/plain");
+    res->println("Backend timeout");
+    backend.stop();
+    return;
+  }
+  Serial_db.printf("[HTTPS proxy] first bytes received, reading status\n");
+  String statusLine = backend.readStringUntil('\n');
+  statusLine.trim();
+  int code = 200;
+  if (statusLine.indexOf("HTTP/") == 0) {
+    int space = statusLine.indexOf(' ', 5);
+    if (space > 0) code = statusLine.substring(5, space).toInt();
+  }
+  res->setStatusCode(code);
+  int space2 = statusLine.indexOf(' ', statusLine.indexOf(' ') + 1);
+  if (space2 > 0) res->setStatusText(statusLine.substring(space2 + 1).c_str());
+  String headerLine;
+  long contentLength = -1;
+  String contentType;
+  for (;;) {
+    headerLine = backend.readStringUntil('\n');
+    if (headerLine == "\r" || headerLine.length() == 0) break;
+    headerLine.trim();
+    if (headerLine.startsWith("Content-Type:")) {
+      contentType = headerLine.substring(13);
+      contentType.trim();
+    } else if (headerLine.startsWith("Content-Length:")) {
+      contentLength = headerLine.substring(15).toInt();
+    }
+  }
+  Serial_db.printf("[HTTPS proxy] headers done, body len=%ld\n", (long)contentLength);
+  if (contentType.length() > 0) res->setHeader("Content-Type", contentType.c_str());
+  if (contentLength >= 0) {
+    byte buf[512];
+    unsigned long bodyStart = millis();
+    while (contentLength > 0) {
+      esp_task_wdt_reset();
+      if (!backend.connected()) break;  // бэкенд закрыл соединение
+      size_t toRead = (size_t)(contentLength < (long)sizeof(buf) ? contentLength : sizeof(buf));
+      size_t n = backend.readBytes(buf, toRead);
+      if (n == 0) {
+        if (millis() - bodyStart > 15000) break;
+        portal.handleClient();
+        yield();
+        delay(1);
+        continue;
+      }
+      bodyStart = millis();
+      res->write(buf, n);
+      contentLength -= (long)n;
+      yield();
+    }
+  } else {
+    // Нет Content-Length: читаем до закрытия соединения, но не дольше таймаута
+    const unsigned long BODY_NO_CLEN_TIMEOUT_MS = 20000;
+    unsigned long lastDataAt = millis();
+    while (backend.connected() || backend.available()) {
+      esp_task_wdt_reset();
+      if (backend.available()) {
+        res->write(backend.read());
+        lastDataAt = millis();
+      } else {
+        if (millis() - lastDataAt > BODY_NO_CLEN_TIMEOUT_MS) break;
+        portal.handleClient();
+        yield();
+        delay(1);
+      }
+    }
+  }
+  Serial_db.printf("[HTTPS proxy] body done, heap %u, calling finalize\n", (unsigned)ESP.getFreeHeap());
+  esp_task_wdt_reset();
+  res->finalize();
+  Serial_db.printf("[HTTPS proxy] done\n");
+  backend.stop();
 }
 #endif
 
@@ -145,11 +274,13 @@ void setup_web_common(void) {
 #endif
   if (g_httpsCert != nullptr) {
     g_httpsServer = new HTTPSServer(g_httpsCert);
-    ResourceNode* nodeRedirect = new ResourceNode("", "GET", &handleHttpsRedirect);
-    g_httpsServer->setDefaultNode(nodeRedirect);
+    ResourceNode* nodeProxy = new ResourceNode("", "GET", (HTTPSCallbackFunction*)&handleHttpsProxy);
+    g_httpsServer->setDefaultNode(nodeProxy);
+    g_httpRedirectServer = new WiFiServer(80);
+    g_httpRedirectServer->begin();
     g_httpsServer->start();
     if (g_httpsServer->isRunning()) {
-      Serial_db.printf("HTTPS: server listening on port 443 (redirect to HTTP)\n");
+      Serial_db.printf("HTTPS: 443 proxy -> localhost:%u, port 80 redirect -> https\n", (unsigned)HTTP_BACKEND_PORT);
     } else {
       Serial_db.printf("HTTPS: server start failed\n");
       delete g_httpsServer;
@@ -391,6 +522,23 @@ void loop_web() {
 #if defined(ARDUINO_ARCH_ESP32) && defined(USE_HTTPS)
   if (g_httpsServer && g_httpsServer->isRunning()) {
     g_httpsServer->loop();
+  }
+  if (g_httpRedirectServer) {
+    if (WiFiClient client = g_httpRedirectServer->available()) {
+      String path = "/";
+      if (client.connected() && client.available()) {
+        String line = client.readStringUntil('\n');
+        int s = line.indexOf(' ');
+        int s2 = line.indexOf(' ', s + 1);
+        if (s > 0 && s2 > s) path = line.substring(s + 1, s2);
+      }
+      IPAddress ip = (WiFi.getMode() & WIFI_STA) && (WiFi.status() == WL_CONNECTED) ? WiFi.localIP() : WiFi.softAPIP();
+      client.print(F("HTTP/1.1 301 Moved Permanently\r\nLocation: https://"));
+      client.print(ip);
+      client.print(path);
+      client.print(F("\r\nConnection: close\r\nContent-Length: 0\r\n\r\n"));
+      client.stop();
+    }
   }
 #endif
 

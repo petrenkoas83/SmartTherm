@@ -181,7 +181,11 @@ void Led_Info_reset(int code)
 #include "soc/rtc_cntl_reg.h"
 #include "soc/rtc_wdt.h"
 
+#if defined(USE_HTTPS)
+#define WDT_TIMEOUT 120 // HTTPS proxy: handleClient() can block ~1 min while building Setup page
+#else
 #define WDT_TIMEOUT 20 // Timeout in seconds
+#endif
 // Define WTC Watchdog Timer in milliseconds
 #define RTC_WDT_TIME_MS (WDT_TIMEOUT *1100 + 10000)
 
