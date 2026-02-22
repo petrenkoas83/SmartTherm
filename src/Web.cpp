@@ -100,7 +100,7 @@ static void handleHttpsProxy(HTTPRequest* req, HTTPResponse* res) {
   Serial_db.printf("[HTTPS proxy] request sent, waiting for response\n");
   unsigned long t0 = millis();
   while (!backend.available() && backend.connected() && millis() - t0 < 10000) {
-    portal.handleClient();  // даём HTTP-серверу обработать соединение на 8080
+    portal.handleClient();
     esp_task_wdt_reset();
     yield();
     delay(1);
@@ -146,7 +146,7 @@ static void handleHttpsProxy(HTTPRequest* req, HTTPResponse* res) {
     unsigned long bodyStart = millis();
     while (contentLength > 0) {
       esp_task_wdt_reset();
-      if (!backend.connected()) break;  // бэкенд закрыл соединение
+      if (!backend.connected()) break;
       size_t toRead = (size_t)(contentLength < (long)sizeof(buf) ? contentLength : sizeof(buf));
       size_t n = backend.readBytes(buf, toRead);
       if (n == 0) {
@@ -162,7 +162,6 @@ static void handleHttpsProxy(HTTPRequest* req, HTTPResponse* res) {
       yield();
     }
   } else {
-    // Нет Content-Length: читаем до закрытия соединения, но не дольше таймаута
     const unsigned long BODY_NO_CLEN_TIMEOUT_MS = 20000;
     unsigned long lastDataAt = millis();
     while (backend.connected() || backend.available()) {
@@ -256,7 +255,6 @@ void setup_web_common(void) {
   portal.begin();
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(USE_HTTPS)
-  // HTTPS-сервер на порту 443: редирект на HTTP (AutoConnect работает только по HTTP)
 #if defined(USE_HTTPS_PRECOMPILED_CERT)
   #include "cert_embed.h"
   g_httpsCert = new SSLCert(
@@ -471,7 +469,11 @@ void onRoot() {
 #else
   const char* redirectUri = INFO_URI;
 #endif
+#if defined(USE_HTTPS)
+  webServer.sendHeader("Location", String("https://") + webServer.client().localIP().toString() + String(redirectUri));
+#else
   webServer.sendHeader("Location", String("http://") + webServer.client().localIP().toString() + String(redirectUri));
+#endif
   webServer.send(302, "text/plain", "");
   webServer.client().flush();
   webServer.client().stop();
